@@ -76,7 +76,7 @@ local function flyTo(destination)
     smoothMove(targetPosition)
 end
 
--- 🟢 MOBILE AUTO FARM (TP SPEED 30, ONE-TIME TELEPORT, SPIN, AUTO "E" PRESS)
+-- 🟢 MOBILE AUTO FARM (TP SPEED 30, FIXED 360 SPIN)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -87,46 +87,9 @@ local player = Players.LocalPlayer
 local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 local Camera = workspace.CurrentCamera
 local autoFarmEnabled = false
-local spinConnection = nil
 local pressEConnection = nil
 local instantInteractConnection = nil
-
--- Enable Instant Interact (No Hold Time)
-local function enableInstantInteract()
-    instantInteractConnection = ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
-        prompt.HoldDuration = 0
-        prompt.RequiresLineOfSight = false
-        prompt:InputHoldBegin()
-        task.wait()
-        prompt:InputHoldEnd()
-    end)
-end
-
--- Fast Teleport Function (Speed = 30)
-local function flyTo(position)
-    if rootPart then
-        local distance = (rootPart.Position - position).Magnitude
-        local duration = distance / 30  -- Speed = 30
-        local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = CFrame.new(position)})
-        tween:Play()
-        tween.Completed:Wait()
-    end
-end
-
--- 🟢 MOBILE AUTO FARM (TP SPEED 30, STOPS ON DISABLE)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local ProximityPromptService = game:GetService("ProximityPromptService")
-
-local player = Players.LocalPlayer
-local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-local Camera = workspace.CurrentCamera
-local autoFarmEnabled = false
-local spinConnection = nil
-local pressEConnection = nil
-local instantInteractConnection = nil
+local spinTween = nil
 
 -- Enable Instant Interact (No Hold Time)
 local function enableInstantInteract()
@@ -158,6 +121,38 @@ local function flyTo(position)
     end
 end
 
+-- 360 Camera Spin (Works on Mobile)
+local function startSpinning()
+    if spinTween then return end -- Prevent multiple tweens
+
+    local spinPart = Instance.new("Part")
+    spinPart.Anchored = true
+    spinPart.Transparency = 1
+    spinPart.Parent = workspace
+    spinPart.Position = Camera.CFrame.Position
+
+    spinTween = TweenService:Create(
+        spinPart,
+        TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), -- Infinite loop
+        {CFrame = spinPart.CFrame * CFrame.Angles(0, math.rad(360), 0)}
+    )
+    spinTween:Play()
+
+    RunService.RenderStepped:Connect(function()
+        if autoFarmEnabled then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position) * spinPart.CFrame.Rotation
+        end
+    end)
+end
+
+-- Stop 360 Spin
+local function stopSpinning()
+    if spinTween then
+        spinTween:Cancel()
+        spinTween = nil
+    end
+end
+
 AutoFarmTab:CreateToggle({
     Name = "🍽️ AUTO FARM MOBILE",
     CurrentValue = false,
@@ -176,10 +171,8 @@ AutoFarmTab:CreateToggle({
             flyTo(Vector3.new(120.0, 5.4, 1264.1))
             task.wait(2)
 
-            -- Spin Camera Loop
-            spinConnection = RunService.RenderStepped:Connect(function()
-                Camera.CFrame = Camera.CFrame * CFrame.Angles(0, -math.rad(1), 0)
-            end)
+            -- Start 360 Camera Spin (Mobile-Compatible)
+            startSpinning()
 
             -- Auto "E" Press Loop
             pressEConnection = RunService.RenderStepped:Connect(function()
@@ -190,7 +183,7 @@ AutoFarmTab:CreateToggle({
 
         else
             -- Disable Auto Farm
-            if spinConnection then spinConnection:Disconnect() spinConnection = nil end
+            stopSpinning() -- Stop 360 Spin
             if pressEConnection then pressEConnection:Disconnect() pressEConnection = nil end
             disableInstantInteract() -- Turn off Instant Interact
         end
