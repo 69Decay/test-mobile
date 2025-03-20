@@ -113,6 +113,51 @@ local function flyTo(position)
     end
 end
 
+-- 🟢 MOBILE AUTO FARM (TP SPEED 30, STOPS ON DISABLE)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+local player = Players.LocalPlayer
+local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+local Camera = workspace.CurrentCamera
+local autoFarmEnabled = false
+local spinConnection = nil
+local pressEConnection = nil
+local instantInteractConnection = nil
+
+-- Enable Instant Interact (No Hold Time)
+local function enableInstantInteract()
+    instantInteractConnection = ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+        prompt.HoldDuration = 0
+        prompt.RequiresLineOfSight = false
+        prompt:InputHoldBegin()
+        task.wait()
+        prompt:InputHoldEnd()
+    end)
+end
+
+-- Disable Instant Interact
+local function disableInstantInteract()
+    if instantInteractConnection then
+        instantInteractConnection:Disconnect()
+        instantInteractConnection = nil
+    end
+end
+
+-- Fast Teleport Function (Speed = 30)
+local function flyTo(position)
+    if rootPart then
+        local distance = (rootPart.Position - position).Magnitude
+        local duration = distance / 30  -- Speed = 30
+        local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = CFrame.new(position)})
+        tween:Play()
+        tween.Completed:Wait()
+    end
+end
+
 AutoFarmTab:CreateToggle({
     Name = "🍽️ AUTO FARM MOBILE",
     CurrentValue = false,
@@ -147,12 +192,10 @@ AutoFarmTab:CreateToggle({
             -- Disable Auto Farm
             if spinConnection then spinConnection:Disconnect() spinConnection = nil end
             if pressEConnection then pressEConnection:Disconnect() pressEConnection = nil end
-            if instantInteractConnection then instantInteractConnection:Disconnect() instantInteractConnection = nil end
+            disableInstantInteract() -- Turn off Instant Interact
         end
     end
 })
-
-
 
 -- 🟢 ANTI-AFK FUNCTION
 local lastInputTime = tick()
